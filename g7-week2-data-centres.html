@@ -817,12 +817,12 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
   background:linear-gradient(160deg, var(--panel-2) 0%, var(--well) 68%);
   padding:clamp(64px, 9.5vh, 100px) clamp(26px, 3vw, 54px) clamp(54px, 5.8vh, 60px); }
 .overview.open { display:flex; }
-.ov-head { flex:none; max-width:min(96vw, 2100px); width:100%; margin:0 auto clamp(4px, 1vh, 14px); }
+.ov-head { flex:none; max-width:min(96vw, 2100px); width:100%; margin:0 auto clamp(3px, 0.7vh, 12px); }
 .ov-head .eyebrow { margin-bottom:0.1em; }
 .ov-head h2 { margin-bottom:0.15em; }
 .ov-hint { font-family:var(--font-label); font-size:var(--label-size); color:var(--mist); }
 .ov-grid { flex:1; min-height:0; overflow-y:auto; align-content:stretch; grid-auto-rows:1fr;
-  display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:clamp(6px, 0.8vw, 14px);
+  display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:clamp(6px, 0.6vw, 12px);
   max-width:min(96vw, 2100px); width:100%; margin:0 auto; }
 .ov-card { display:flex; flex-direction:column; gap:clamp(2px, 0.5vh, 7px); text-align:left;
   border:0; cursor:pointer; background:var(--panel); color:#EEF2FF;
@@ -833,7 +833,10 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
 .ov-card:hover:not(:disabled) { filter:brightness(1.35); }
 .ov-card:focus-visible { outline:3px solid var(--p-o); outline-offset:3px; }
 .ov-card:disabled { opacity:.4; cursor:default; }
-.ov-card.lap { border-left:var(--px) solid var(--p-o); }
+/* a lap card wears a green band; gold is kept for the card holding the current slide (Igor, 6 Sep 2026) */
+.ov-card.lap { border-left:var(--px) solid var(--p-s); }
+/* a two lap lesson has eight cards: the last card spans two cells so the 3 by 3 grid stays full (Igor, 6 Sep 2026) */
+.ov-card.wide { grid-column:span 2; }
 /* Card layout, 5 September 2026 (Igor): "the text needs to be in the middle,
    and if there is a photo put the text at the top and the photo in the middle;
    if there is no photo centre the text in the middle of the card."
@@ -851,9 +854,16 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
 .ov-prep { list-style:none; margin:clamp(2px, 0.4vh, 5px) 0 0; padding:0;
   display:flex; flex-direction:column; gap:clamp(1px, 0.3vh, 4px); }
 /* one line each, so the card stays the height of its row and the grid never scrolls */
-.ov-prep li { font-family:var(--font-label); font-size:calc(clamp(0.78rem, min(1.15vw, 1.7vh), 1.5rem) * var(--font-scale));
-  line-height:1.2; color:var(--mist); letter-spacing:.01em; padding-left:1.25em; position:relative; }
-.ov-prep li::before { content:"\2610"; position:absolute; left:0; color:var(--p-i); }
+.ov-prep li { font-family:var(--font-label); font-size:calc(clamp(0.78rem, min(1.05vw, 1.55vh), 1.5rem) * var(--font-scale));
+  line-height:1.2; color:var(--mist); letter-spacing:.01em; display:flex; align-items:baseline; gap:0.4em; flex-wrap:wrap; }
+/* a real tick box on every line; ticks save on their own under CHECKS_KEY, which a push never purges (Igor, 6 Sep 2026) */
+.ov-prep label { display:inline-flex; align-items:baseline; gap:0.45em; cursor:pointer; }
+.ov-tick { width:1em; height:1em; margin:0; flex:none; accent-color:var(--p-o); cursor:pointer; transform:translateY(0.1em); }
+.ov-prep li.done > label { color:#7F89A8; text-decoration:line-through; text-decoration-color:rgba(127,137,168,.6); }
+.ov-prep li.post { margin-top:clamp(1px, 0.25vh, 4px); padding-top:clamp(1px, 0.25vh, 4px); border-top:1px solid rgba(255,255,255,.14); }
+.ov-jump { display:inline-block; font-family:var(--font-label); font-size:0.85em; background:var(--p-o); color:var(--ink);
+  padding:0.05em 0.5em; margin-left:0.15em; border:0; cursor:pointer; }
+.ov-jump:hover { filter:brightness(1.1); }
 .ov-link { display:inline-block; font-family:var(--font-label); font-size:0.85em; background:var(--p-i); color:var(--ink);
   padding:0.05em 0.5em; margin-left:0.15em; text-decoration:none; }
 .ov-link:hover { filter:brightness(1.1); }
@@ -866,7 +876,7 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
    aspect-ratio height and pushed every card below it off the Overview. A real
    height is what the row measures. It is a thumbnail either way: the picture
    itself opens at full size on its own slide. */
-.ov-pic img { display:block; height:clamp(56px, 13vh, 180px); width:auto; max-width:100%;
+.ov-pic img { display:block; height:clamp(56px, 12.5vh, 180px); width:auto; max-width:100%;
   object-fit:contain;
   background:#fff; box-shadow:0 0 0 3px var(--panel-2), 5px 5px 0 rgba(0,0,0,.4); }
 .ov-top { display:flex; align-items:baseline; justify-content:space-between; gap:0.6em; }
@@ -892,7 +902,9 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
 .overview.fanned .ov-grid { overflow:hidden; }
 /* the card holding the slide the lesson is on right now, so the teacher can see
    the place at a glance. Grid only: a fan out already says where it is. */
-.overview:not(.fanned) .ov-card.is-here { outline:3px solid var(--p-o); outline-offset:3px; }
+/* the ring is drawn INSIDE the card edge: an outline sat outside it and the grid clipped it on the outer cards (Igor, 6 Sep 2026) */
+.overview:not(.fanned) .ov-card.is-here { box-shadow:inset 0 0 0 3px var(--p-o),
+  inset calc(var(--px) * -1) calc(var(--px) * -1) 0 rgba(0,0,0,.45), inset var(--px) var(--px) 0 rgba(255,255,255,.14); }
 
 #ovFan { position:fixed; inset:0; z-index:2; display:none; pointer-events:none; }
 .overview.fanned #ovFan { display:block; }
@@ -1697,7 +1709,7 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
 </section>
 
 <!-- 28 · Notes for next lesson -->
-<section data-element="notes" class="slide g-panel" data-notes="&lt;strong&gt;After they have gone.&lt;/strong&gt; Type what you want next lesson straight into the box: what worked, what to drop, who needs picking up. &lt;strong&gt;It saves as you type on this machine, and ⌘S bakes it into the saved copy so the next build reads it.&lt;/strong&gt;">
+<section data-element="reflect" class="slide g-panel" data-notes="&lt;strong&gt;After they have gone.&lt;/strong&gt; Type what you want next lesson straight into the box: what worked, what to drop, who needs picking up. &lt;strong&gt;It saves as you type on this machine, and ⌘S bakes it into the saved copy so the next build reads it.&lt;/strong&gt;">
   <div class="slide-content" style="max-width:min(96vw,2400px)">
     <p class="eyebrow reveal">// notes_for_next_lesson</p>
     <h2 class="reveal">Notes for next lesson</h2>
@@ -1856,7 +1868,7 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
    The slides the teacher has hidden persist the same way, under their own version-keyed
    name, so a hide survives a refresh mid-lesson but never outlives a push.
    Everything else (font scale, teacher toggle, iSAMS state, timers) stays session-only. */
-const DECK_VERSION = 'v20260906-131042';
+const DECK_VERSION = 'v20260906-133328';
 
 /* ===========================================
    RUNTIME_STRIP: everything the boot code builds or writes at run time.
@@ -1902,7 +1914,7 @@ const ELEMENTS = [
   /* Before the lesson: the teacher's own card, first in the Overview (Igor,
      6 Sep 2026). A checklist with link buttons, not a slide, so students never
      present it and nothing in the run is renumbered. */
-  { id: 'prep',    name: 'Before the lesson', prep: true, items: [
+  { id: 'prep',    name: 'Pre and Post List', prep: true, items: [
     { text: 'Print 18 Student Sheets, slide 2.', link: 'sheet file',
       href: 'https://docs.google.com/presentation/d/1dW3MxCfAmeJGWnqAVZ24_RFyCHBQGJy6OXR5CKfJJgo/edit' },
     { text: 'Print the Secret Challenge, hide it.', link: 'Doc',
@@ -1912,7 +1924,10 @@ const ELEMENTS = [
     { text: 'Registers final by 08:35 and 09:15.', link: 'iSAMS',
       href: 'https://aissharjah.isamshosting.cloud/main/framework' },
     { text: 'Journal posts at 08:30, a Doc each.', link: 'Classroom',
-      href: 'https://classroom.google.com/c/ODc2MDk1NjQ1NzY0' }
+      href: 'https://classroom.google.com/c/ODc2MDk1NjQ1NzY0' },
+    /* the post lesson line: the notes slide is the last slide of the Reflection and exit card,
+       and this button jumps straight to it (Igor, 6 Sep 2026) */
+    { text: 'After class: type your next lesson notes.', link: 'open notes', jump: 'notesBox', post: true }
   ] },
   { id: 'entry',   name: 'Entry routine' },
   { id: 'donow',   name: 'Do Now' },
@@ -1927,8 +1942,9 @@ const ELEMENTS = [
     cfu: 'One table holds up its A3 sheet and reads it out.',
     sc: 'Success Criteria 2 and 3: explain the trip, and name two ways it is kept safe',
     brainBreak: 'Heads or Tails' },
-  { id: 'reflect', name: 'Reflection and exit' },
-  { id: 'notes',   name: 'Notes for next lesson' }
+  { id: 'reflect', name: 'Reflection and exit' }
+  /* Notes for next lesson is the last slide of the Reflection and exit card, so the Overview
+     never grows past nine cards (Igor, 6 Sep 2026). */
 ];
 
 const EDIT_KEY = 'g7w2l1-edits:' + DECK_VERSION;
@@ -1937,7 +1953,10 @@ const HIDDEN_KEY = 'g7w2l1-hidden:' + DECK_VERSION;
    never wipe what Igor wrote about the next lesson, so the boot purge steps
    over it as well as over the two version keyed ones. */
 const NOTES_KEY = 'g7w2l1-notes';
-try { Object.keys(localStorage).forEach(k => { if (k !== EDIT_KEY && k !== HIDDEN_KEY && k !== NOTES_KEY) localStorage.removeItem(k); }); } catch (e) {}
+/* The Pre and Post List ticks: keyed by the line's own words, never by the deck version, so a push
+   never wipes a morning's ticks and a reworded line simply starts unticked. Never baked into an export. */
+const CHECKS_KEY = 'g7w2l1-checks';
+try { Object.keys(localStorage).forEach(k => { if (k !== EDIT_KEY && k !== HIDDEN_KEY && k !== NOTES_KEY && k !== CHECKS_KEY) localStorage.removeItem(k); }); } catch (e) {}
 
 /* ===========================================
    STUDENT SHEET: one template, cloned into every point of use.
@@ -3137,6 +3156,10 @@ class DeckOverview {
       this.grid.appendChild(b);
       this.cards.push(entry);
     });
+    /* nine cells: with a third lap the grid is full; with two laps the last card spans two cells */
+    const all = Array.from(this.grid.querySelectorAll('.ov-card'));
+    all.forEach(c => c.classList.remove('wide'));
+    if (all.length === 8) all[all.length - 1].classList.add('wide');
     this.refresh();
   }
   prepCard(el) {
@@ -3155,14 +3178,46 @@ class DeckOverview {
     d.appendChild(top);
     const ul = document.createElement('ul');
     ul.className = 'ov-prep';
+    let ticks = {};
+    try { ticks = JSON.parse(localStorage.getItem(CHECKS_KEY) || '{}') || {}; } catch (e) { ticks = {}; }
+    const save = () => { try { localStorage.setItem(CHECKS_KEY, JSON.stringify(ticks)); } catch (e) {} };
     (el.items || []).forEach(it => {
       const li = document.createElement('li');
-      li.appendChild(document.createTextNode(it.text + ' '));
+      if (it.post) li.classList.add('post');
+      const lab = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox'; box.className = 'ov-tick';
+      box.checked = !!ticks[it.text];
+      li.classList.toggle('done', box.checked);
+      box.addEventListener('change', () => {
+        if (box.checked) ticks[it.text] = true; else delete ticks[it.text];
+        li.classList.toggle('done', box.checked);
+        save();
+      });
+      const span = document.createElement('span');
+      span.textContent = it.text;
+      lab.appendChild(box); lab.appendChild(span);
+      li.appendChild(lab);
       if (it.href) {
         const a = document.createElement('a');
         a.className = 'ov-link'; a.href = it.href; a.target = '_blank'; a.rel = 'noopener';
         a.textContent = it.link || 'open';
         li.appendChild(a);
+      } else if (it.jump) {
+        const j = document.createElement('button');
+        j.type = 'button'; j.className = 'ov-jump';
+        j.textContent = it.link || 'open';
+        j.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const target = document.getElementById(it.jump);
+          const sec = target && target.closest('section.slide');
+          const idx = sec ? Array.from(this.p.slides).indexOf(sec) : -1;
+          if (idx < 0) return;
+          this.closeFan(false);
+          this.close();
+          this.p.goTo(idx);
+        });
+        li.appendChild(j);
       }
       ul.appendChild(li);
     });
