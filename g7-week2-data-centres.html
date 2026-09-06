@@ -879,6 +879,56 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
 .ov-line b { color:var(--p-o); font-weight:400; }
 @media (max-width:1100px) { .ov-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 
+/* ---- THE FAN OUT (Igor, 6 September 2026) ----
+   A card tap does not jump straight to a slide any more. The card lifts to the
+   top centre of the Overview and the slides inside it lay out underneath, each
+   one a LIVE SCALED COPY of the real section rather than a picture of it, so
+   there is nothing to regenerate when Igor edits a slide. Tapping a tile is
+   what opens a slide. Every node below is built at run time inside #ovFan, and
+   RUNTIME_STRIP empties that container on export, so a saved copy carries the
+   empty div and nothing else. */
+.ov-card.is-raised { z-index:3; }
+.overview.fanned .ov-card:not(.is-raised) { opacity:0; pointer-events:none; }
+.overview.fanned .ov-grid { overflow:hidden; }
+/* the card holding the slide the lesson is on right now, so the teacher can see
+   the place at a glance. Grid only: a fan out already says where it is. */
+.overview:not(.fanned) .ov-card.is-here { outline:3px solid var(--p-o); outline-offset:3px; }
+
+#ovFan { position:fixed; inset:0; z-index:2; display:none; pointer-events:none; }
+.overview.fanned #ovFan { display:block; }
+.ov-fan-row { position:absolute; display:flex; flex-wrap:wrap; pointer-events:auto;
+  align-items:center; align-content:center; justify-content:center; }
+/* last resort, and only when the tiles genuinely cannot be made to fit */
+.ov-fan-row.scrolls { flex-wrap:nowrap; justify-content:flex-start; overflow-x:auto; overflow-y:hidden; }
+.ov-tile { flex:none; display:flex; flex-direction:column; align-items:center;
+  gap:clamp(2px, 0.4vh, 6px); margin:0; padding:0; border:0; background:transparent;
+  color:#EEF2FF; cursor:pointer; opacity:0; transform:translateY(14px);
+  transition:opacity .28s var(--ease-out-expo), transform .28s var(--ease-out-expo); }
+.ov-tile.in { opacity:1; transform:none; }
+.ov-tile:focus { outline:none; }          /* the ring lives on the box below */
+.ov-tile-box { position:relative; overflow:hidden; background:var(--panel); }
+/* the pixel inset is painted OVER the copy, so a tile keeps the Overview's edge */
+.ov-tile-box::after { content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
+  box-shadow:inset calc(var(--px) * -1) calc(var(--px) * -1) 0 rgba(0,0,0,.45),
+             inset var(--px) var(--px) 0 rgba(255,255,255,.14); }
+.ov-tile-scale { position:absolute; top:0; left:0; transform-origin:top left; pointer-events:none; }
+.ov-tile-scale * { pointer-events:none; }
+/* a tile shows the slide at rest: everything revealed, nothing waiting on a tap */
+.ov-tile .reveal, .ov-tile [data-fragment] { opacity:1; transform:none; transition:none; }
+.ov-tile:hover:not(.is-hidden) .ov-tile-box { filter:brightness(1.18); }
+.ov-tile.is-focus .ov-tile-box, .ov-tile:focus-visible .ov-tile-box { outline:3px solid var(--p-o); outline-offset:3px; }
+.ov-tile.is-hidden .ov-tile-box { filter:grayscale(.75) brightness(.5); }
+.ov-tile-foot { display:flex; align-items:center; justify-content:center; gap:0.5em; line-height:1.2; }
+.ov-tile-num { font-family:var(--font-display);
+  font-size:calc(clamp(0.55rem, min(0.9vw, 1.35vh), 1.2rem) * var(--font-scale));
+  color:#fff; letter-spacing:.04em; }
+.ov-tile.is-hidden .ov-tile-num { color:var(--mist); }
+.ov-tile-flag { font-family:var(--font-label);
+  font-size:calc(clamp(0.7rem, min(1.05vw, 1.5vh), 1.3rem) * var(--font-scale));
+  background:var(--p-z); color:#fff; padding:0 0.4em; letter-spacing:.05em; line-height:1.25; }
+/* reduced motion: the card is simply placed and the tiles simply appear */
+@media (prefers-reduced-motion:reduce) { .ov-tile, .ov-tile.in { transform:none; } }
+
 #cursorFx { position:fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:9999; }
 </style>
 </head>
@@ -1736,9 +1786,12 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
   <div class="ov-head">
     <p class="eyebrow">// overview</p>
     <h2>Data Centres and Safe Networks</h2>
-    <p class="ov-hint">Tap a card to open it. From there NEXT carries straight on into the next card.</p>
+    <p class="ov-hint">Tap a card to see its slides. Tap a slide to open it, then NEXT carries on.</p>
   </div>
   <div class="ov-grid" id="ovGrid"></div>
+  <!-- The fan out layer: the tiles for one card's slides. Built at run time and
+       emptied again by RUNTIME_STRIP, so a saved copy carries the empty div. -->
+  <div class="ov-fan" id="ovFan"></div>
 </div>
 
 <!-- On-screen navigation, so a lesson with no clicker in the room still moves.
@@ -1803,7 +1856,7 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
    The slides the teacher has hidden persist the same way, under their own version-keyed
    name, so a hide survives a refresh mid-lesson but never outlives a push.
    Everything else (font scale, teacher toggle, iSAMS state, timers) stays session-only. */
-const DECK_VERSION = 'v20260906-120100';
+const DECK_VERSION = 'v20260906-124314';
 
 /* ===========================================
    RUNTIME_STRIP: everything the boot code builds or writes at run time.
@@ -1819,7 +1872,7 @@ const DECK_VERSION = 'v20260906-120100';
 const RUNTIME_STRIP = {
   /* emptied: the boot code fills these */
   containers: ['.sheet-slot', '.nav-dots', '#pkQueue', '#pkRoster', '#pkNote', '#notesBody',
-                '#ovGrid', '#slideNum', '#notesCounter'],
+                '#ovGrid', '#ovFan', '#slideNum', '#notesCounter'],
   /* removed outright: the boot code creates these */
   nodes: ['.pic-open', '.timer-pill', 'scribe-shadow'],
   /* attributes written at run time, as [selector, attribute] */
@@ -1829,7 +1882,7 @@ const RUNTIME_STRIP = {
   /* classes toggled at run time, as [selector, class] */
   classes: [['.slide', 'visible'], ['.slide', 'active'], ['*', 'fragment-visible'],
             ['#isamsPop', 'show'], ['#speakerNotes', 'visible'],
-            ['#overview', 'open'], ['*', 'overview-open']],
+            ['#overview', 'open'], ['#overview', 'fanned'], ['*', 'overview-open']],
   /* inline style properties measured at run time, as [selector, property] */
   styleProps: [['*', '--pic-w'], ['*', '--font-scale'], ['*', '--slide-num-w'],
                ['*', '--hint-max'], ['*', '--nav-h'], ['.progress-bar', 'width'], ['#cursorFx', 'width'],
@@ -2043,6 +2096,7 @@ function fitPictures() {
      fewer columns means wider cells, so try widest first and stop at the first
      count whose rows fit inside the room the words leave */
   document.querySelectorAll('.photo-grid').forEach(grid => {
+    if (grid.closest('#ovFan')) return;   /* a fan out tile is a copy, never measured */
     const content = grid.closest('.slide-content');
     if (!content) return;
     const capH = Math.max(PIC_MIN, picRoom(content).h * PIC_MAX_H);
@@ -2056,6 +2110,7 @@ function fitPictures() {
   });
 
   Array.from(document.querySelectorAll('.picfig, .sheet-fig')).forEach(fig => {
+    if (fig.closest('#ovFan')) return;    /* a fan out tile is a copy, never measured */
     const content = fig.closest('.slide-content');
     if (!content) return;
     const room = picRoom(content);
@@ -2088,6 +2143,7 @@ const FIT_FLOOR = 0.94;
 function fitSlides() {
   const squeezed = [];
   document.querySelectorAll('.slide-content').forEach(c => {
+    if (c.closest('#ovFan')) return;      /* a fan out tile is a copy, never measured */
     c.style.transform = ''; c.style.height = ''; c.style.maxHeight = ''; c.style.flex = '';
     const over = slideOverflow(c);
     if (over < 4) return;
@@ -2982,30 +3038,51 @@ class DeckNav {
    short name, how many slides are inside it that are still in the run, and, for
    a lap, its check for understanding, its success criteria reference and its
    brain break.
-   Tapping a card opens the element's first slide. From there the deck is an
-   ordinary presentation: NEXT carries on past the last slide of the card into
-   the next card, BACK the reverse, and a hidden slide stays hidden inside its
-   card.
+   Tapping a card FANS IT OUT: the card lifts to the top centre and the slides
+   inside it lay out underneath as live scaled copies. Tapping one of those
+   tiles opens that slide. From there the deck is an ordinary presentation:
+   NEXT carries on past the last slide of the card into the next card, BACK the
+   reverse, and a hidden slide stays hidden inside its card.
    =========================================== */
 class DeckOverview {
   constructor(presentation) {
     this.p = presentation;
     this.wrap = document.getElementById('overview');
     this.grid = document.getElementById('ovGrid');
-    if (!this.wrap || !this.grid) return;
+    this.fan = document.getElementById('ovFan');
+    if (!this.wrap || !this.grid || !this.fan) return;
     /* a copy saved with Cmd+S while the Overview was up must not carry it back */
     this.wrap.classList.remove('open');
+    this.wrap.classList.remove('fanned');
     document.body.classList.remove('overview-open');
+    this.fan.textContent = '';
+    this.fanId = null;      /* the element id of the card that is fanned out */
+    this.raised = null;     /* that card's node */
+    this.raisedBox = null;  /* where it was put, measured once and kept */
+    this.tiles = [];
+    this.tileAt = -1;
     this.build();
     const btn = document.getElementById('navOverview');
-    if (btn) btn.addEventListener('click', (e) => { if (e.detail > 0) btn.blur(); this.toggle(); });
+    if (btn) btn.addEventListener('click', (e) => { if (e.detail > 0) btn.blur(); this.back(); });
     document.addEventListener('keydown', (e) => {
       if (e.target.isContentEditable || ['INPUT', 'TEXTAREA', 'IFRAME'].includes(e.target.tagName)) return;
       if (e.key !== 'o' && e.key !== 'O') return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (navBlocked()) return;              /* the sheet or the picker owns the screen */
       e.preventDefault();
-      this.toggle();
+      this.back();
+    });
+    /* With a fan out up the arrows walk the tiles instead of the deck. This runs
+       in the CAPTURE phase on purpose: the presentation's own key handler sits on
+       document too, and it was bound first, so a bubbling handler here would
+       arrive after the deck had already moved. */
+    document.addEventListener('keydown', (e) => this.fanKeys(e), true);
+    /* a window resize re-measures the fan out rather than leaving it where the
+       old window shape put it */
+    window.addEventListener('resize', () => {
+      if (!this.fanId) return;
+      clearTimeout(this.fanResizeTimer);
+      this.fanResizeTimer = setTimeout(() => this.relayout(), 180);
     });
     /* the counts follow the run, so hiding a slide re-counts its card */
     const orig = this.p.update.bind(this.p);
@@ -3052,15 +3129,13 @@ class DeckOverview {
         wrap.appendChild(img);
         b.appendChild(wrap);
       }
+      const entry = { el: el, node: b, count: count };
       b.addEventListener('click', (e) => {
         if (e.detail > 0) b.blur();
-        const first = this.visibleOf(el.id)[0];
-        if (first === undefined) return;
-        this.close();
-        this.p.goTo(first);
+        this.toggleCard(entry);
       });
       this.grid.appendChild(b);
-      this.cards.push({ el: el, node: b, count: count });
+      this.cards.push(entry);
     });
     this.refresh();
   }
@@ -3103,15 +3178,260 @@ class DeckOverview {
   }
   refresh() {
     if (!this.cards) return;
+    const at = this.p.current;
     this.cards.forEach(c => {
       const n = this.visibleOf(c.el.id).length;
       c.count.textContent = n === 1 ? '1 slide' : n + ' slides';
       c.node.disabled = (n === 0);
+      /* the gold ring: the card the lesson is sitting in right now */
+      c.node.classList.toggle('is-here', this.slidesOf(c.el.id).indexOf(at) !== -1);
     });
+  }
+
+  /* ===========================================
+     THE FAN OUT
+     Tap a card and it lifts to the top centre of the Overview while the other
+     cards fade out of the way; the slides inside it appear underneath as tiles,
+     each one a clone of the real section scaled down to tile size. Nothing in
+     here is a picture, so nothing has to be regenerated when a slide changes,
+     and nothing in here survives a Cmd+S: the tiles live in #ovFan, which
+     RUNTIME_STRIP empties, and the raised card lives in #ovGrid, which it
+     empties too. (Igor, 6 September 2026.)
+     =========================================== */
+  reduced() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+  gapPx() { const g = parseFloat(getComputedStyle(this.grid).columnGap); return isFinite(g) ? g : 12; }
+  isFanned() { return !!this.fanId; }
+  /* the OVERVIEW button and the O key: out of a fan out first, then out of the
+     Overview, so one press never skips a step */
+  back() { if (this.fanId) this.closeFan(true); else this.toggle(); }
+  toggleCard(entry) {
+    if (this.fanId === entry.el.id) { this.closeFan(true); return; }   /* tap the raised card */
+    if (this.fanId) this.closeFan(false);
+    this.openFan(entry, true);
+  }
+  /* Move a node from where it is to where it now sits, the FLIP way: measure
+     both, put the difference on as a transform with no transition, then let it
+     play out to nothing. Reduced motion skips straight to the end. */
+  flip(node, dx, dy) {
+    clearTimeout(node.flipTimer);
+    if (this.reduced() || (!Math.round(dx) && !Math.round(dy))) {
+      node.style.transition = ''; node.style.transform = ''; return;
+    }
+    node.style.transition = 'none';
+    node.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+    void node.offsetWidth;                       /* let the browser take that as the start */
+    node.style.transition = 'transform .35s var(--ease-out-expo)';
+    node.style.transform = 'translate(0px, 0px)';
+    node.flipTimer = setTimeout(() => { node.style.transition = ''; node.style.transform = ''; }, 420);
+  }
+  openFan(entry, animate) {
+    if (!entry || entry.el.prep) return;         /* the checklist card has no slides */
+    const idxs = this.slidesOf(entry.el.id);
+    if (!idxs.length) return;
+    const node = entry.node;
+    const from = node.getBoundingClientRect();
+    const grid = this.grid.getBoundingClientRect();
+    const w = Math.round(from.width), h = Math.round(from.height);
+    const left = Math.round(grid.left + (grid.width - w) / 2);
+    const top = Math.round(grid.top);
+    this.fanId = entry.el.id;
+    this.raised = node;
+    this.raisedBox = { left: left, top: top, w: w, h: h };
+    this.wrap.classList.add('fanned');
+    node.classList.add('is-raised');
+    node.style.position = 'fixed';
+    node.style.margin = '0';
+    node.style.left = left + 'px';
+    node.style.top = top + 'px';
+    node.style.width = w + 'px';
+    node.style.height = h + 'px';
+    /* the other cards stop taking clicks AND stop taking tab stops */
+    this.cards.forEach(c => { if (c.node !== node) c.node.setAttribute('tabindex', '-1'); });
+    if (animate) this.flip(node, from.left - left, from.top - top);
+    this.buildTiles(idxs);
+    this.focusTile(0);
+  }
+  closeFan(animate) {
+    if (!this.fanId) return;
+    const node = this.raised;
+    const box = this.raisedBox;
+    this.fanId = null; this.raised = null; this.raisedBox = null;
+    this.tiles = []; this.tileAt = -1;
+    this.fan.textContent = '';
+    this.wrap.classList.remove('fanned');
+    if (this.cards) this.cards.forEach(c => c.node.removeAttribute('tabindex'));
+    if (!node) return;
+    node.classList.remove('is-raised');
+    node.removeAttribute('style');
+    const back = node.getBoundingClientRect();
+    if (animate) {
+      this.flip(node, box.left - back.left, box.top - back.top);
+      if (node.focus) node.focus({ preventScroll: true });
+    }
+  }
+  /* a resize is measured again from scratch rather than patched up */
+  relayout() {
+    const id = this.fanId;
+    if (!id || !this.cards) return;
+    const entry = this.cards.filter(c => c.el.id === id)[0];
+    this.closeFan(false);
+    if (entry) this.openFan(entry, false);
+  }
+  /* One clone of the real section per slide, forced to its at rest look, with
+     everything that could run, focus or be looked up by id taken out of it. */
+  slideCopy(i) {
+    const c = this.p.slides[i].cloneNode(true);
+    c.classList.remove('active', 'visible');
+    ['id', 'data-hidden', 'data-notes', 'data-isams', 'data-timer', 'data-timer-group']
+      .forEach(a => c.removeAttribute(a));
+    Array.from(c.querySelectorAll('script')).forEach(s => s.remove());
+    Array.from(c.querySelectorAll('[id]')).forEach(e => e.removeAttribute('id'));
+    Array.from(c.querySelectorAll('[data-notes], [data-isams], [data-timer], [data-timer-group]'))
+      .forEach(e => { e.removeAttribute('data-notes'); e.removeAttribute('data-isams');
+                      e.removeAttribute('data-timer'); e.removeAttribute('data-timer-group'); });
+    Array.from(c.querySelectorAll('a, button, input, textarea, select, [contenteditable], [tabindex]'))
+      .forEach(e => { e.setAttribute('tabindex', '-1'); e.removeAttribute('contenteditable'); });
+    c.setAttribute('inert', '');
+    return c;
+  }
+  buildTiles(idxs) {
+    const row = document.createElement('div');
+    row.className = 'ov-fan-row';
+    this.fan.appendChild(row);
+    this.tiles = [];
+    idxs.forEach(i => {
+      const hidden = this.p.isHidden(i);
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.className = 'ov-tile' + (hidden ? ' is-hidden' : '');
+      t.dataset.i = i;
+      t.setAttribute('aria-label', 'Open slide ' + (i + 1) + (hidden ? ', hidden from the run' : ''));
+      const box = document.createElement('span');
+      box.className = 'ov-tile-box';
+      const sc = document.createElement('span');
+      sc.className = 'ov-tile-scale';
+      sc.setAttribute('aria-hidden', 'true');
+      sc.appendChild(this.slideCopy(i));
+      box.appendChild(sc);
+      const foot = document.createElement('span');
+      foot.className = 'ov-tile-foot';
+      const num = document.createElement('span');
+      num.className = 'ov-tile-num';
+      num.textContent = String(i + 1);
+      foot.appendChild(num);
+      if (hidden) {
+        const flag = document.createElement('span');
+        flag.className = 'ov-tile-flag';
+        flag.textContent = 'HIDDEN';
+        foot.appendChild(flag);
+      }
+      t.appendChild(box); t.appendChild(foot);
+      t.addEventListener('click', (e) => { if (e.detail > 0) t.blur(); this.openSlide(i); });
+      row.appendChild(t);
+      this.tiles.push(t);
+    });
+    this.sizeTiles(row);
+    const step = this.reduced() ? 0 : 45;
+    const tiles = this.tiles.slice();
+    requestAnimationFrame(() => tiles.forEach((t, k) => {
+      t.style.transitionDelay = (k * step) + 'ms';
+      t.classList.add('in');
+    }));
+  }
+  /* The tiles are sized to the room the raised card leaves, at the slide's own
+     shape, so a tile looks like the slide. One row if one row works; two rows
+     if one row would make them too small to read; a row that scrolls sideways
+     only if two rows still cannot hold them. */
+  sizeTiles(row) {
+    const grid = this.grid.getBoundingClientRect();
+    const box = this.raisedBox;
+    const gap = this.gapPx();
+    const top = Math.round(box.top + box.h + gap);
+    const height = Math.max(90, Math.round(grid.bottom - top));
+    /* The tile row takes the Overview's whole content width, not the card
+       grid's capped column, so on the ultrawide the tiles grow with the
+       screen instead of staying the size the 2100px column allows. */
+    const wrapBox = this.wrap.getBoundingClientRect();
+    const wcs = getComputedStyle(this.wrap);
+    const padL = parseFloat(wcs.paddingLeft) || 0, padR = parseFloat(wcs.paddingRight) || 0;
+    const rowLeft = Math.round(wrapBox.left + padL);
+    const rowWidth = Math.round(wrapBox.width - padL - padR);
+    row.style.left = rowLeft + 'px';
+    row.style.top = top + 'px';
+    row.style.width = rowWidth + 'px';
+    row.style.height = height + 'px';
+    row.style.gap = gap + 'px';
+    const s0 = this.p.slides[0].getBoundingClientRect();
+    const sw = Math.round(s0.width) || window.innerWidth;
+    const sh = Math.round(s0.height) || window.innerHeight;
+    const shape = sw / sh;
+    const count = this.tiles.length;
+    const foot = this.tiles[0].querySelector('.ov-tile-foot').getBoundingClientRect().height;
+    const below = Math.ceil(foot) + 6;
+    const MIN = 132, MAX = 720;
+    const widthFor = (rows) => {
+      const per = Math.ceil(count / rows);
+      const byWidth = (rowWidth - (per - 1) * gap) / per;
+      const byHeight = ((height - (rows - 1) * gap) / rows - below) * shape;
+      return Math.floor(Math.min(byWidth, byHeight, MAX));
+    };
+    let tw = widthFor(1);
+    if (tw < MIN && count > 1) tw = Math.max(tw, widthFor(2));
+    const scrolls = tw < MIN;
+    if (scrolls) tw = MIN;
+    row.classList.toggle('scrolls', scrolls);
+    const th = Math.max(1, Math.round(tw / shape));
+    this.tiles.forEach(t => {
+      const b = t.querySelector('.ov-tile-box');
+      b.style.width = tw + 'px';
+      b.style.height = th + 'px';
+      const sc = t.querySelector('.ov-tile-scale');
+      sc.style.width = sw + 'px';
+      sc.style.height = sh + 'px';
+      sc.style.transform = 'scale(' + (tw / sw) + ')';
+    });
+  }
+  openSlide(i) {
+    this.close();
+    this.p.goTo(i);
+  }
+  focusTile(i) {
+    if (!this.tiles.length) return;
+    if (i < 0) i = this.tiles.length - 1;
+    if (i >= this.tiles.length) i = 0;
+    this.tiles.forEach((t, k) => t.classList.toggle('is-focus', k === i));
+    this.tileAt = i;
+    const t = this.tiles[i];
+    t.focus({ preventScroll: true });
+    /* a sideways scrolling row is nudged by hand: scrollIntoView would take the
+       whole page with it, and the page is a scroll snap deck */
+    const row = t.parentNode;
+    if (row && row.scrollWidth > row.clientWidth + 1) {
+      const a = t.getBoundingClientRect(), b = row.getBoundingClientRect();
+      if (a.left < b.left) row.scrollLeft -= (b.left - a.left) + 8;
+      else if (a.right > b.right) row.scrollLeft += (a.right - b.right) + 8;
+    }
+  }
+  fanKeys(e) {
+    if (!this.fanId || !this.isOpen()) return;
+    if (navBlocked()) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target.isContentEditable || ['INPUT', 'TEXTAREA', 'IFRAME'].includes(e.target.tagName)) return;
+    const k = e.key;
+    const stop = () => { e.preventDefault(); e.stopPropagation(); };
+    if (k === 'Escape') { stop(); this.closeFan(true); return; }
+    if (k === 'ArrowRight' || k === 'ArrowDown') { stop(); this.focusTile(this.tileAt + 1); return; }
+    if (k === 'ArrowLeft' || k === 'ArrowUp') { stop(); this.focusTile(this.tileAt - 1); return; }
+    if (k === 'Enter' || k === ' ') {
+      stop();
+      const t = this.tiles[this.tileAt] || this.tiles[0];
+      if (t) this.openSlide(parseInt(t.dataset.i, 10));
+    }
   }
   isOpen() { return this.wrap.classList.contains('open'); }
   open() {
     if (this.isOpen()) return;
+    this.closeFan(false);
     this.refresh();
     this.wrap.classList.add('open');
     document.body.classList.add('overview-open');
@@ -3121,6 +3441,7 @@ class DeckOverview {
   }
   close() {
     if (!this.isOpen()) return;
+    this.closeFan(false);
     this.wrap.classList.remove('open');
     document.body.classList.remove('overview-open');
     if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.ov-card')) document.activeElement.blur();
