@@ -569,7 +569,9 @@ body.edit-active #hiddenBadge { top:56px; }
 .teacher-btn.off { opacity:.4; text-decoration:line-through; }
 .edit-btn.active { background:var(--p-o); color:var(--ink); }
 
-.speaker-notes-panel { position:fixed; bottom:clamp(0.8rem,2vh,1.5rem); left:50%; transform:translateX(-50%) translateY(150%);
+/* The panel stands ABOVE the bottom bar: its bottom edge is the bar's own
+   measured height plus a gap (Igor, 6 Sep 2026: the bar covered the last lines). */
+.speaker-notes-panel { position:fixed; bottom:calc(var(--chrome-bottom) + var(--nav-h, 44px) + clamp(8px, 1.2vh, 14px)); left:50%; transform:translateX(-50%) translateY(150%);
   width:min(940px,92vw); max-height:40vh; z-index:9000; background:rgba(10,13,24,0.97); color:#fff;
   padding:clamp(0.8rem,1.5vw,1.2rem) clamp(1rem,2vw,1.5rem);
   box-shadow:0 -10px 40px rgba(0,0,0,.5); font-size:clamp(0.78rem,1.2vw,0.96rem); line-height:1.55; overflow-y:auto;
@@ -813,14 +815,14 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
    =========================================== */
 .overview { position:fixed; inset:0; z-index:325; display:none; flex-direction:column;
   background:linear-gradient(160deg, var(--panel-2) 0%, var(--well) 68%);
-  padding:clamp(64px, 9.5vh, 100px) clamp(26px, 3vw, 54px) clamp(58px, 6.2vh, 64px); }
+  padding:clamp(64px, 9.5vh, 100px) clamp(26px, 3vw, 54px) clamp(54px, 5.8vh, 60px); }
 .overview.open { display:flex; }
-.ov-head { flex:none; max-width:min(96vw, 2100px); width:100%; margin:0 auto clamp(6px, 1.2vh, 16px); }
+.ov-head { flex:none; max-width:min(96vw, 2100px); width:100%; margin:0 auto clamp(4px, 1vh, 14px); }
 .ov-head .eyebrow { margin-bottom:0.1em; }
 .ov-head h2 { margin-bottom:0.15em; }
 .ov-hint { font-family:var(--font-label); font-size:var(--label-size); color:var(--mist); }
 .ov-grid { flex:1; min-height:0; overflow-y:auto; align-content:stretch; grid-auto-rows:1fr;
-  display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:clamp(7px, 0.9vw, 16px);
+  display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:clamp(6px, 0.8vw, 14px);
   max-width:min(96vw, 2100px); width:100%; margin:0 auto; }
 .ov-card { display:flex; flex-direction:column; gap:clamp(2px, 0.5vh, 7px); text-align:left;
   border:0; cursor:pointer; background:var(--panel); color:#EEF2FF;
@@ -840,6 +842,21 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
 .ov-card:not(.has-pic) { justify-content:center; align-items:center; text-align:center; }
 .ov-card:not(.has-pic) .ov-top { width:100%; justify-content:center; gap:0.6em; }
 .ov-card.has-pic { justify-content:flex-start; }
+/* Before the lesson: the teacher's checklist card, first in the Overview
+   (Igor, 6 Sep 2026). A div, not a button: nothing to open, links inside. */
+.ov-card.prep { cursor:default; border-left:var(--px) solid var(--p-i);
+  justify-content:flex-start; align-items:stretch; text-align:left; }
+.ov-card.prep .ov-top { width:100%; justify-content:space-between; gap:0.6em; }
+.ov-teacher { color:var(--p-o); text-transform:uppercase; letter-spacing:.08em; }
+.ov-prep { list-style:none; margin:clamp(2px, 0.4vh, 5px) 0 0; padding:0;
+  display:flex; flex-direction:column; gap:clamp(1px, 0.3vh, 4px); }
+/* one line each, so the card stays the height of its row and the grid never scrolls */
+.ov-prep li { font-family:var(--font-label); font-size:calc(clamp(0.78rem, min(1.15vw, 1.7vh), 1.5rem) * var(--font-scale));
+  line-height:1.2; color:var(--mist); letter-spacing:.01em; padding-left:1.25em; position:relative; }
+.ov-prep li::before { content:"\2610"; position:absolute; left:0; color:var(--p-i); }
+.ov-link { display:inline-block; font-family:var(--font-label); font-size:0.85em; background:var(--p-i); color:var(--ink);
+  padding:0.05em 0.5em; margin-left:0.15em; text-decoration:none; }
+.ov-link:hover { filter:brightness(1.1); }
 .ov-pic { flex:1 1 auto; min-height:0; width:100%; overflow:hidden;
   display:flex; align-items:center; justify-content:center;
   margin-top:clamp(3px, 0.6vh, 8px); }
@@ -1786,7 +1803,7 @@ body.sheet-zoom-open .deck-nav, body.picker-open .deck-nav { display:none; }
    The slides the teacher has hidden persist the same way, under their own version-keyed
    name, so a hide survives a refresh mid-lesson but never outlives a push.
    Everything else (font scale, teacher toggle, iSAMS state, timers) stays session-only. */
-const DECK_VERSION = 'v20260906-012457';
+const DECK_VERSION = 'v20260906-120100';
 
 /* ===========================================
    RUNTIME_STRIP: everything the boot code builds or writes at run time.
@@ -1815,7 +1832,7 @@ const RUNTIME_STRIP = {
             ['#overview', 'open'], ['*', 'overview-open']],
   /* inline style properties measured at run time, as [selector, property] */
   styleProps: [['*', '--pic-w'], ['*', '--font-scale'], ['*', '--slide-num-w'],
-               ['*', '--hint-max'], ['.progress-bar', 'width'], ['#cursorFx', 'width'],
+               ['*', '--hint-max'], ['*', '--nav-h'], ['.progress-bar', 'width'], ['#cursorFx', 'width'],
                ['#cursorFx', 'height'], ['#notesHint', 'transition'], ['#notesHint', 'opacity']],
   /* presentation attributes the canvas sizer writes */
   sizeAttrs: [['#cursorFx', 'width'], ['#cursorFx', 'height']]
@@ -1829,6 +1846,21 @@ const RUNTIME_STRIP = {
    three things the lesson plan promises for that lap.
    =========================================== */
 const ELEMENTS = [
+  /* Before the lesson: the teacher's own card, first in the Overview (Igor,
+     6 Sep 2026). A checklist with link buttons, not a slide, so students never
+     present it and nothing in the run is renumbered. */
+  { id: 'prep',    name: 'Before the lesson', prep: true, items: [
+    { text: 'Print 18 Student Sheets, slide 2.', link: 'sheet file',
+      href: 'https://docs.google.com/presentation/d/1dW3MxCfAmeJGWnqAVZ24_RFyCHBQGJy6OXR5CKfJJgo/edit' },
+    { text: 'Print the Secret Challenge, hide it.', link: 'Doc',
+      href: 'https://docs.google.com/document/d/1ZkDrx2uWenPkMvCymsL0J5CFLXP49PlOXyrEny6NK24/edit' },
+    { text: 'Tracking sheet up on the board.', link: 'open sheet',
+      href: 'https://docs.google.com/spreadsheets/d/1TFUbZ6vhZF1lvIkHHocAjgUEoSKXsJ0LRJWBRlT8oGo/edit' },
+    { text: 'Registers final by 08:35 and 09:15.', link: 'iSAMS',
+      href: 'https://aissharjah.isamshosting.cloud/main/framework' },
+    { text: 'Journal posts at 08:30, a Doc each.', link: 'Classroom',
+      href: 'https://classroom.google.com/c/ODc2MDk1NjQ1NzY0' }
+  ] },
   { id: 'entry',   name: 'Entry routine' },
   { id: 'donow',   name: 'Do Now' },
   { id: 'lisc',    name: 'Learning intention and success criteria' },
@@ -2987,6 +3019,7 @@ class DeckOverview {
     this.grid.innerHTML = '';   /* clear, so a saved copy never doubles the cards */
     this.cards = [];
     ELEMENTS.forEach(el => {
+      if (el.prep) { this.grid.appendChild(this.prepCard(el)); return; }
       if (!this.slidesOf(el.id).length) return;
       const b = document.createElement('button');
       b.type = 'button';
@@ -3031,6 +3064,36 @@ class DeckOverview {
     });
     this.refresh();
   }
+  prepCard(el) {
+    const d = document.createElement('div');
+    d.className = 'ov-card prep';
+    d.dataset.el = el.id;
+    const top = document.createElement('span');
+    top.className = 'ov-top';
+    const name = document.createElement('span');
+    name.className = 'ov-name';
+    name.textContent = el.name;
+    const tag = document.createElement('span');
+    tag.className = 'ov-count ov-teacher';
+    tag.textContent = 'teacher';
+    top.appendChild(name); top.appendChild(tag);
+    d.appendChild(top);
+    const ul = document.createElement('ul');
+    ul.className = 'ov-prep';
+    (el.items || []).forEach(it => {
+      const li = document.createElement('li');
+      li.appendChild(document.createTextNode(it.text + ' '));
+      if (it.href) {
+        const a = document.createElement('a');
+        a.className = 'ov-link'; a.href = it.href; a.target = '_blank'; a.rel = 'noopener';
+        a.textContent = it.link || 'open';
+        li.appendChild(a);
+      }
+      ul.appendChild(li);
+    });
+    d.appendChild(ul);
+    return d;
+  }
   line(label, text) {
     const p = document.createElement('span');
     p.className = 'ov-line';
@@ -3053,7 +3116,7 @@ class DeckOverview {
     this.wrap.classList.add('open');
     document.body.classList.add('overview-open');
     this.p.update();
-    const first = this.grid.querySelector('.ov-card:not(:disabled)');
+    const first = this.grid.querySelector('button.ov-card:not(:disabled)');
     if (first) first.focus({ preventScroll: true });
   }
   close() {
@@ -3635,6 +3698,7 @@ window.deck = { presentation: presentation, DECK_VERSION: DECK_VERSION, EDIT_KEY
     document.documentElement.style.setProperty('--slide-num-w', snW + 'px');
     const nav = document.querySelector('.deck-nav');
     const navR = nav ? nav.getBoundingClientRect().right : 0;
+    document.documentElement.style.setProperty('--nav-h', (nav ? Math.ceil(nav.getBoundingClientRect().height) : 44) + 'px');
     const margin = Math.min(20, Math.max(10, window.innerWidth * 0.015));
     document.documentElement.style.setProperty('--hint-max', Math.max(120, Math.floor(window.innerWidth - margin - snW - navR - 10)) + 'px');
   };
